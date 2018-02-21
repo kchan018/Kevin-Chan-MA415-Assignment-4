@@ -1,0 +1,161 @@
+---
+title: "MA415 Assignment 4"
+author: "Kevin Chan"
+date: "February 21 2018"
+output: 
+  pdf_document: 
+    latex_engine: xelatex
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 10.5 Exercises
+
+## 1. 
+How can you tell if an object is a tibble? (Hint: try printing \texttt{mtcars}, which is a regular data frame.)
+```{r}
+# Intial setup.
+library(tidyverse)
+library(knitr)
+# Exercise 1.
+mtcars
+class(mtcars)
+as_tibble(mtcars)
+class(as_tibble(mtcars))
+```
+## 2. 
+Compare and contrast the following operations on a \texttt{data.frame} and equivalent tibble. What is different? Why might the default data frame behaviours cause your frustration?
+  Using "$" with a data frame will partially complete the column, which may result in accidentally using a different variable than the one desired. Using \texttt{[}, the type of object returned is dependent on the number of columns. If there is only one column, the object will return a vector and not a data frame. Otherwise, the object will return a data frame.
+```{r}
+df <- data.frame(abc = 1, xyz = "a")
+df$x
+df[, "xyz"]
+df[, c("abc", "xyz")]
+tibdf <- as_tibble(df)
+tibdf$x
+tibdf[, "xyz"]
+tibdf[, c("abc", "xyz")]
+```
+  
+## 3. 
+If you have the name of a variable stored in an object, e.g.\texttt{var <- "mpg"}, how can you extract the reference variable from a tibble?
+```{r}
+```
+  To extract the reference variable from a tibble, you can use the double bracket, e.g. \texttt{df[[var]]}.
+
+## 4. 
+Practice referring to non-syntactic names in the following data frame by:
+
+### 1. 
+      Extracting the variable called \texttt{1}.
+```{r}
+# This is given.
+annoying <- tibble(
+  `1` = 1:10,
+  `2` = `1` * 2 + rnorm(length(`1`))
+)
+# Part 1 of Problem 4
+annoying[["1"]]
+```
+### 2. 
+      Plotting a scatterplot of \texttt{1} vs \texttt{2}.
+```{r}
+ggplot(annoying, aes(x = `1`, y = `2`)) + geom_point()
+```
+
+### 3. 
+      Creating a new column called \texttt{3}, which is \texttt{2} divided by \texttt{1}.
+```{r}
+annoying[["3"]] <- annoying[["2"]]/annoying[["1"]]
+```
+### 4. 
+      Renaming the columns to \texttt{one}, \texttt{two}, and \texttt{three}.
+```{r}
+annoying <- rename(annoying, one = `1`, two = `2`, three = `3`)
+glimpse(annoying)
+```
+## 5. 
+What does \texttt{tibble::enframe()} do? When might you use it?
+```{r}
+?tibble::enframe()
+```
+  \texttt{tibble::enframe()} converts named vectors to two-column data frames with names and values. The natural sequence is used as name column for unnamed vectors.
+## 6. 
+What option controls how many additional column names are printed at the footer of a tibble?
+  Using the print function for tibbles, which is print.tbl_df, the option n_extra controls how many extra column names are printed.
+```{r}
+```
+## 12.6.1 Exercises
+```{r}
+# Code necessary for the exercises below (from throughout the chapter):
+who %>%
+  gather(code, value, new_sp_m014:newrel_f65, na.rm = TRUE) %>% 
+  mutate(code = stringr::str_replace(code, "newrel", "new_rel")) %>%
+  separate(code, c("new", "var", "sexage")) %>% 
+  select(-new, -iso2, -iso3) %>% 
+  separate(sexage, c("sex", "age"), sep = 1)
+who1 <- who %>%
+  gather(new_sp_m014:newrel_f65, key = "key", value = "cases", na.rm = TRUE)
+glimpse(who1)
+who2 <- who1 %>%
+ mutate(key = stringr::str_replace(key, "newrel", "new_rel"))
+who3 <- who2 %>%
+  separate(key, c("new", "type", "sexage"), sep = "_")
+who3
+who3 %>%
+  count(new)
+who4 <- who3 %>%
+  select(-new, -iso2, -iso3)
+who5 <- who4 %>%
+  separate(sexage, c("sex", "age"), sep = 1)
+who5
+```
+## 1. 
+In this case study I set \texttt{na.rm = TRUE} just to make it easier to check that we had the correct values. Is this reasonable? Think about how missing values are represented in this dataset. Are there implicit missing values? What's the difference between an \texttt{NA} and zero?
+  More information must be known in order to know more about the data generating process. There are zeros in the data, which may indicate no cases.
+```{r}
+who1 %>%
+  filter(cases == 0) %>%
+  nrow()
+```
+  It appears that either a country has all of its values as non-missing if the World Health Organization collected data for that country or all of its values are truly non-missing. Therefore, it is okay to treat explicitly and implicitly missing values equally, and we do not lose any information by dropping the missing values.
+```{r}
+gather(who, new_sp_m014:newrel_f65, key = "key", value = "cases") %>%
+  group_by(country, year)  %>%
+  mutate(missing = is.na(cases)) %>%
+  select(country, year, missing) %>%
+  distinct() %>%
+  group_by(country, year) %>%
+  filter(n() > 1)
+```
+## 2. 
+What happens if you neglect the \texttt{mutate()} step? (mutate(key = stringr::str_replace(key, "newrel", "new_rel")))
+  If you neglect the mutate() step, separate will give the warning message "too few values". If we check the rows for keys beginning with "newrel_", sexage is missing and type is equal to m014.
+```{r}
+who3nomut <- who1 %>%
+  separate(key, c("new", "type", "sexage"), sep = "_")
+filter(who3nomut, new == "newrel") %>% head()
+```
+  
+## 3. 
+I claimed that \texttt{iso2} and \texttt{iso3} were redundant with country. Confirm this claim.
+  Based on the output, \texttt{iso2} and \texttt{iso3} were redundant with country.
+```{r}
+select(who3, country, iso2, iso3) %>%
+  distinct() %>%
+  group_by(country) %>%
+  filter(n() > 1)
+```
+  
+## 4. 
+For each country, year, and sex, compute the total number of cases of TB. Make an informative visualisation of the data.
+```{r}
+who5 %>%
+  group_by(country, year, sex) %>%
+  filter(year > 1995) %>%
+  summarize(cases = sum(cases)) %>%
+  unite(country_sex, country, sex, remove = FALSE) %>%
+  ggplot(aes(x = year, y = cases, group = country_sex, colour = sex)) + geom_line()
+```
